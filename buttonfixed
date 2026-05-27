@@ -1,1 +1,178 @@
+package discord;
 
+import com.jagrosh.discordipc.IPCClient;
+import com.jagrosh.discordipc.IPCListener;
+import com.jagrosh.discordipc.entities.RichPresence;
+import com.jagrosh.discordipc.exceptions.NoDiscordClientException;
+
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.screen.option.OptionsScreen;
+import net.minecraft.client.gui.screen.world.SelectWorldScreen;
+import net.minecraft.client.network.ServerInfo;
+
+public class RichPresenceSetup {
+
+    private static IPCClient client;
+
+    private static final long CLIENT_ID = ....;
+
+    private static boolean isReady = false;
+
+    private static final MinecraftClient mc = MinecraftClient.getInstance();
+
+    // cache
+    private static String lastState = "";
+
+    public static void init() {
+
+        client = new IPCClient(CLIENT_ID);
+
+        client.setListener(new IPCListener() {
+
+            @Override
+            public void onReady(IPCClient client) {
+
+                System.out.println("[RPC] Ready");
+
+                isReady = true;
+
+                startUpdateThread();
+            }
+        });
+
+        try {
+
+            client.connect();
+
+        } catch (NoDiscordClientException e) {
+
+            System.err.println("[RPC] Discord is not running");
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Auto update thread.
+     */
+    private static void startUpdateThread() {
+
+        Thread thread = new Thread(() -> {
+
+            while (isReady) {
+
+                try {
+
+                    update();
+
+                    Thread.sleep(3000);
+
+                } catch (Exception e) {
+
+                    e.printStackTrace();
+                }
+            }
+
+        }, "Discord-RPC-Thread");
+
+        thread.setDaemon(true);
+
+        thread.start();
+    }
+
+    public static void update() {
+
+        if (!isReady)
+            return;
+
+        String state = getCurrentState();
+
+        // don't resend same rpc
+        if (state.equals(lastState))
+            return;
+
+        lastState = state;
+
+        RichPresence presence = new RichPresence.Builder()
+
+                .setDetails("RockStar Client")
+                .setState(state)
+
+                .setLargeImage(
+                        "rockstar_logo",
+                        "RockStar Client"
+                )
+
+                .setSmallImage(
+                        "online",
+                        "Minecraft 1.21.4"
+                )
+
+                .addButton(
+                        "Buy",
+                        "...." #link
+                )
+
+                .addButton(
+                        "Telegram",
+                        "...." #link
+                )
+
+                .build();
+
+        client.sendRichPresence(presence);
+
+        System.out.println("[RPC] Updated: " + state);
+    }
+
+    private static String getCurrentState() {
+
+        // SERVER PRIORITY
+        ServerInfo server = mc.getCurrentServerEntry();
+
+        if (server != null && server.address != null) {
+
+            return "Playing on the server " + server.address;
+        }
+
+        Screen screen = mc.currentScreen;
+
+        // SETTINGS
+        if (screen instanceof OptionsScreen) {
+
+            return "In the settings";
+        }
+
+        // WORLD MENU
+        if (screen instanceof SelectWorldScreen) {
+
+            return "In the worlds selection menu";
+        }
+
+        // MAIN MENU
+        if (screen instanceof TitleScreen) {
+
+            return "In the main menu";
+        }
+
+        // SINGLEPLAYER
+        if (mc.isInSingleplayer()) {
+
+            return "It plays in a single world";
+        }
+
+        return "Minecraft 1.21.4";
+    }
+
+    public static void shutdown() {
+
+        isReady = false;
+
+        if (client != null)
+            client.close();
+    }
+}
