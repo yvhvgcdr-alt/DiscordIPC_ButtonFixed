@@ -313,13 +313,13 @@ public final class IPCClient implements Closeable
                     }
                 }
             }
-            catch(IOException | JSONException ex)
-            {
-                LOGGER.error("Reading thread crashed", ex);
+            catch(JSONException ex)
+{
+    LOGGER.error("Reading thread crashed", ex);
 
-                if(listener != null)
-                    listener.onDisconnect(this, ex);
-            }
+    if(listener != null)
+        listener.onDisconnect(this, ex);
+}
             catch(Exception ex)
             {
                 LOGGER.error("Unexpected IPC error", ex);
